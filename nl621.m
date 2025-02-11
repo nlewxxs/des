@@ -110,6 +110,27 @@ function [X_comp, T_comp] = fda_parallel_comp(X1, X2, T1, T2)
     end
 end
 
+function [X_po, T_po, E_po] = convert_to_partially_observable(X_parallel, T_parallel, E_parallel)
+
+    % Replace events n, s, e, w with m, this is done with what is essentially a grep command. 
+    E_po = unique([E_parallel(E_parallel ~= 'n' & E_parallel ~= 's' & E_parallel ~= 'e' & E_parallel ~= 'w'), 'm']);
+    
+    % Make a copy of the original transition matrix (for simplicity)
+    T_po = T_parallel;
+    
+    % Replace n, s, e, w with m in the transition matrix
+    for i = 1:size(T_po, 1)
+        if any(T_po(i, 3) == [find(E_parallel == 'n'), find(E_parallel == 's'), find(E_parallel == 'e'), find(E_parallel == 'w')])
+            T_po(i, 3) = find(E_po == 'm'); % Replace with index of 'm'
+        end
+    end
+    
+    % States remain the same
+    X_po = X_parallel;
+end
+
+% QUESTION 3 ============================================================
+
 % Compute parallel composition
 [X_parallel, T_parallel] = fda_parallel_comp(X1, X2, T1, T2);
 
@@ -119,6 +140,15 @@ for i = 1:size(X_parallel,1)
     state_labels{i} = [X1(X_parallel(i,1),:), '-', X2(X_parallel(i,2),:)];
 end
 
+% Display events
+disp("Events of G_M||G_R:");
+% TODO: change to acc calculate union?
+disp(E2); % events are the union of both, in this case E1 subset of E2
+
+% Display states
+disp("States of G_M||G_R:");
+disp(char(state_labels));
+
 % Display transition map f(x, x', e)
 disp("Transitions f(x, x', e) in G_M||G_R:");
 disp('Cur. state    Next state    Event');
@@ -127,4 +157,31 @@ for i = 1:size(T_parallel,1)
         state_labels{T_parallel(i,1)}, ...
         state_labels{T_parallel(i,2)}, ...
         E1(T_parallel(i,3)));
+end
+
+% QUESTION 4 ============================================================
+
+% Convert {n, s, e, w} events to {m}
+[X_po, T_po, E_po] = convert_to_partially_observable(X_parallel, T_parallel, E2); 
+
+% Display events
+disp("Events of Partially Observable G_N:");
+disp(E_po); 
+
+% Display states
+disp("States of Partially Observable G_N:");
+state_labels_po = cell(size(X_po,1), 1);
+for i = 1:size(X_po,1)
+    state_labels_po{i} = [X1(X_po(i,1),:), '-', X2(X_po(i,2),:)];
+end
+disp(char(state_labels_po));
+
+% Display transitions
+disp("Transitions f(x, x', e) in G_N:");
+disp('Cur. state    Next state    Event');
+for i = 1:size(T_po,1)
+    fprintf('%s \t-> \t%s : \t%c\n', ...
+        state_labels_po{T_po(i,1)}, ...
+        state_labels_po{T_po(i,2)}, ...
+        E_po(T_po(i,3)));
 end
