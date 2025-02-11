@@ -159,6 +159,54 @@ for i = 1:size(T_parallel,1)
         E1(T_parallel(i,3)));
 end
 
+function observer_automaton = compute_observer_automaton(X_po, T_po, E_po)
+    % Number of states in G_N
+    num_states = size(X_po, 1);
+    
+    % Initialize observer automaton
+    observer_automaton.states = []; % Matrix to store observer states (binary vectors)
+    observer_automaton.transitions = []; % Transitions between observer states
+    
+    % Initial state: all states are possible (vector of ones)
+    initial_state = ones(1, num_states);
+    observer_automaton.states = [observer_automaton.states; initial_state];
+    
+    % Queue for processing observer states
+    queue = 1; % Start with the initial state
+    
+    % Process observer states
+    while ~isempty(queue)
+        current_idx = queue(1); % Get the first state in the queue
+        queue(1) = []; % Remove it from the queue
+        
+        current_state = observer_automaton.states(current_idx, :);
+        
+        % For each observable event (r and m)
+        for event = find(E_po == 'r' | E_po == 'm')
+            next_state = zeros(1, num_states); % Initialize next state
+            
+            % For each possible state in the current observer state
+            for state = find(current_state)
+                % Find all transitions from this state with the current event
+                transitions = T_po(T_po(:, 1) == state & T_po(:, 3) == event, :);
+                
+                % Add the next states to the next observer state
+                next_state(transitions(:, 2)) = 1;
+            end
+            
+            % If the next state is not already in the observer automaton, add it
+            if ~ismember(next_state, observer_automaton.states, 'rows')
+                observer_automaton.states = [observer_automaton.states; next_state];
+                queue(end + 1) = size(observer_automaton.states, 1);
+            end
+            
+            % Add the transition to the observer automaton
+            next_idx = find(ismember(observer_automaton.states, next_state, 'rows'));
+            observer_automaton.transitions = [observer_automaton.transitions; current_idx, next_idx, event];
+        end
+    end
+end
+
 % QUESTION 4 ============================================================
 
 % Convert {n, s, e, w} events to {m}
@@ -184,4 +232,25 @@ for i = 1:size(T_po,1)
         state_labels_po{T_po(i,1)}, ...
         state_labels_po{T_po(i,2)}, ...
         E_po(T_po(i,3)));
+end
+
+% QUESTION 5 ============================================================
+
+% Compute observer automaton
+observer_automaton = compute_observer_automaton(X_po, T_po, E_po);
+
+% Display observer states
+disp("Observer States:");
+for i = 1:size(observer_automaton.states, 1)
+    fprintf('State %d: %s\n', i, mat2str(observer_automaton.states(i, :)));
+end
+
+% Display observer transitions
+disp("Observer Transitions:");
+disp('Cur. state    Next state    Event');
+for i = 1:size(observer_automaton.transitions, 1)
+    fprintf('%d \t-> \t%d : \t%c\n', ...
+        observer_automaton.transitions(i, 1), ...
+        observer_automaton.transitions(i, 2), ...
+        E_po(observer_automaton.transitions(i, 3)));
 end
